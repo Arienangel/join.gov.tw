@@ -12,11 +12,11 @@ with open("setup.json", encoding="utf-8") as f:
     cfg = json.load(f)
 delta = cfg["delta"]
 source = cfg["source"]
-time = datetime.now().strftime("%Y%m%d%H%M")
+time = datetime.now()
 
 L = list()
 for i in source:
-    url = f'https://join.gov.tw/idea/files/zip/{i["id"]}/export_{time}.zip'
+    url = f'https://join.gov.tw/idea/files/zip/{i["id"]}/export_{time.strftime("%Y%m%d%H%M")}.zip'
     r = requests.get(url)
     with ZipFile(BytesIO(r.content)) as zf:
         with zf.open("附議名單.csv") as f:
@@ -25,8 +25,9 @@ for i in source:
             S = data["附議時間"].dt.floor(freq=delta)
             C = pd.Series(0, index=pd.date_range(S.iloc[0], S.iloc[-1], freq=delta))
             C = C.add(S.value_counts(), fill_value=0).astype(int)
+            C.index = C.index.astype(str)
             L.append((data, C))
-with pd.ExcelWriter("result.xlsx", engine="xlsxwriter", datetime_format='yyyy-mm-dd hh:mm:ss') as f:
+with pd.ExcelWriter(f'result {time.strftime("%Y-%m-%d %H-%M-%S")}.xlsx', engine="xlsxwriter", datetime_format='yyyy-mm-dd hh:mm:ss') as f:
     wb = f.book
     for n, df in enumerate(L, 1):
         sheetname = f"Sheet{n}"
@@ -41,9 +42,10 @@ with pd.ExcelWriter("result.xlsx", engine="xlsxwriter", datetime_format='yyyy-mm
         chart.add_series({
             'name': f'={sheetname}!$I$1',
             'categories': f'={sheetname}!$H$2:{xl_rowcol_to_cell(i+1, 7)}',
-            'values': f'={sheetname}!$I$2:{xl_rowcol_to_cell(i+1, 8)}'
+            'values': f'={sheetname}!$I$2:{xl_rowcol_to_cell(i+1, 8)}',
+            'gap': 20,
         })
-        chart2 = wb.add_chart({'type': 'scatter', 'subtype': 'straight'})
+        chart2 = wb.add_chart({'type': 'line'})
         chart2.add_series({
             'name': f'={sheetname}!$J$1',
             'categories': f'={sheetname}!$H$2:{xl_rowcol_to_cell(i+1, 7)}',
@@ -51,7 +53,7 @@ with pd.ExcelWriter("result.xlsx", engine="xlsxwriter", datetime_format='yyyy-mm
             'y2_axis': 1
         })
         chart.combine(chart2)
-        chart.set_x_axis({'name': '日期', 'num_font': {'rotation': 90}, 'major_gridlines': {'visible': True}})
+        chart.set_x_axis({'name': '日期', 'num_font': {'rotation': 90}, 'major_gridlines': {'visible': False}})
         chart.set_y_axis({'name': '計數'})
         chart2.set_y2_axis({'name': '總數'})
         chart.set_size({'width': 1080, 'height': 607.5})
