@@ -1,5 +1,5 @@
+from datetime import datetime, timedelta, timezone
 import json
-from datetime import datetime
 import requests
 from zipfile import ZipFile
 from io import BytesIO
@@ -12,7 +12,7 @@ delta = cfg["delta"]  # daily: D, hourly: H, minutely: T, see https://pandas.pyd
 source = cfg["source"]  # title: any string, id: end of the url
 start = cfg["time_start"]  # false or datetime-like string (include)
 end = cfg["time_end"]  # false or datetime-like string (exclude)
-time = datetime.now()
+time = datetime.now(tz=timezone(timedelta(hours=8)))
 
 L = list()
 for i in source:
@@ -22,7 +22,7 @@ for i in source:
         with zf.open("附議名單.csv") as f:
             data = pd.read_csv(f)
             data["附議時間"] = pd.to_datetime(data["附議時間"])
-            S = data["附議時間"].dt.floor(freq=delta)
+            S = data["附議時間"].dt.to_period(freq=delta).dt.to_timestamp()
             C = pd.DataFrame()
             C["計數"] = pd.Series(0, index=pd.date_range(S.iloc[0], S.iloc[-1], freq=delta)).add(S.value_counts(), fill_value=0).astype(int)
             C["總數"] = C["計數"].cumsum()
